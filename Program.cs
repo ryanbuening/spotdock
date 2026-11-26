@@ -20,7 +20,6 @@ internal static class Program
         }
 
         Diag.Log($"Started, version {Assembly.GetExecutingAssembly().GetName().Version}.");
-        TestSwitches.LogActive();
 
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {

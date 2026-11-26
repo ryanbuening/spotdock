@@ -73,12 +73,14 @@ public class WidgetSettings
     /// <summary>Fired after every Save - the other windows re-apply their UI.</summary>
     public static event Action? Changed;
 
-    public static WidgetSettings Load()
+    public static WidgetSettings Load() => LoadFrom(FilePath);
+
+    internal static WidgetSettings LoadFrom(string filePath)
     {
         WidgetSettings s;
         try
         {
-            s = JsonSerializer.Deserialize(File.ReadAllText(FilePath), WidgetSettingsJsonContext.Default.WidgetSettings) ?? new WidgetSettings();
+            s = JsonSerializer.Deserialize(File.ReadAllText(filePath), WidgetSettingsJsonContext.Default.WidgetSettings) ?? new WidgetSettings();
             // A hand-edited / half-written file can carry null fields -
             // normalize INSIDE the try: broken settings must not block startup
             // (it left an invisible process running forever)
@@ -107,24 +109,31 @@ public class WidgetSettings
 
     public void Save()
     {
+        SaveTo(FilePath);
+        Changed?.Invoke();
+    }
+
+    internal void SaveTo(string filePath)
+    {
         // Mirrors of the old format, so a downgrade still reads something valid
         AutoPosition = !ManualX.ContainsKey(0);
         if (ManualX.TryGetValue(0, out double x))
             X = x;
         try
         {
-            Directory.CreateDirectory(Dir);
-        // Atomic write: save alongside and swap by rename - a crash or a power
-        // cut halfway left a truncated JSON and Load silently reset ALL of the
-        // user's settings
-            string tmp = FilePath + ".tmp";
+            string? dir = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+            // Atomic write: save alongside and swap by rename - a crash or a power
+            // cut halfway left a truncated JSON and Load silently reset ALL of the
+            // user's settings
+            string tmp = filePath + ".tmp";
             lock (SaveLock)
             {
                 File.WriteAllText(tmp, JsonSerializer.Serialize(this, WidgetSettingsJsonContext.Default.WidgetSettings));
-                File.Move(tmp, FilePath, overwrite: true);
+                File.Move(tmp, filePath, overwrite: true);
             }
         }
         catch { }
-        Changed?.Invoke();
     }
 }

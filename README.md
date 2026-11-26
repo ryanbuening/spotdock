@@ -65,18 +65,23 @@ Produces a standalone NativeAOT `SpotDock.exe` with no .NET runtime dependency.
   next track, click/drag the progress bar to seek, scroll wheel to adjust system
   volume, and `+` / green check to save to favorites.
 - **Settings menu:** Right-click the widget for Brightness presets (20%–100%),
-  Show cover art, Progress bar, Start with Windows, and Quit.
+  Show cover art, Stretch text, Progress bar, Start with Windows, Check for updates, and Quit.
 - Settings and error log live in `%APPDATA%\SpotDock\`.
 
 ## Structure
 
 | File | Role |
 |---|---|
-| `WidgetWindow.cs` | Win32 widget window, positioning, responsive layout, menu |
+| `WidgetWindow.cs` | Core Win32 widget window lifecycle, track refresh, marquee, and WndProc |
+| `WidgetWindow.Layout.cs` | Taskbar positioning, anchoring, fullscreen detection, and responsive sizing |
+| `WidgetWindow.Animations.cs` | Progress bar, scrubbing pill, hover/opacity animations, and render dispatch |
+| `WidgetWindow.Input.cs` | Hit testing, mouse clicks, drag-to-position, and wheel volume |
+| `WidgetWindow.Menu.cs` | Native Win32 context menu, autostart, and update prompts |
 | `D2DRenderer.cs` | Direct2D/DirectWrite/WIC rendering and layered window presentation |
 | `ScrubPillWindow.cs` | Floating Direct2D scrub timestamp pill |
 | `UiThread.cs` | Win32 message loop and `SynchronizationContext` |
 | `MediaHub.cs` | Shared source combining Spotify Desktop (SMTC) and Spotify Web (`BrowserBridge`) |
+| `MediaArbitration.cs` | Pure source-selection and Spotify app-ID classification helpers |
 | `MediaService.cs` | Windows SMTC reader filtered to Spotify Desktop sessions |
 | `BrowserBridge.cs` | Loopback WebSocket server (`127.0.0.1:45219`) for `open.spotify.com` |
 | `spotdock-bridge/` | MV3 extension (`SpotDock Bridge`) scoped to `https://open.spotify.com/*` |
@@ -84,3 +89,4 @@ Produces a standalone NativeAOT `SpotDock.exe` with no .NET runtime dependency.
 | `SourceActivator.cs` | Focuses Spotify Desktop window or Spotify Web browser window |
 | `Interop.cs` | Win32 (taskbar position, topmost, fullscreen detection, input) |
 | `WidgetSettings.cs` | Position, opacity, and UI options stored as JSON |
+| `SpotDock.Tests/` | xUnit tests for arbitration, WebSocket bridge, settings, and release parsing |

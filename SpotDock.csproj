@@ -20,6 +20,7 @@
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
     <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
     <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <DefaultItemExcludes>$(DefaultItemExcludes);SpotDock.Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

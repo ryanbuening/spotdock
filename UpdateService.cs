@@ -17,11 +17,9 @@ namespace SpotDock;
 /// </summary>
 internal static class UpdateService
 {
-    /// <summary>Automatic updates are OFF in this build. It is a locally
-    /// modified build (any-player support through SMTC): a GitHub update would
-    /// silently replace the exe and undo those changes.
-    /// Setting this to true turns everything below back on.</summary>
-    public const bool AutoUpdateEnabled = false;
+    /// <summary>Automatic updates through GitHub Releases for ryanbuening/spotdock.
+    /// Setting this to false disables update checks and downloads.</summary>
+    public const bool AutoUpdateEnabled = true;
 
     // GitHub "owner/repo" holding the releases. With "CHANGEME" the check is disabled.
     public const string GitHubRepo = "ryanbuening/spotdock";
@@ -41,28 +39,7 @@ internal static class UpdateService
             return null; // repository has no releases yet - not an error
         response.EnsureSuccessStatusCode();
         string json = await response.Content.ReadAsStringAsync();
-        using var doc = JsonDocument.Parse(json);
-
-        string tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
-        if (!Version.TryParse(tag.TrimStart('v', 'V'), out var latest))
-        {
-            // A tag off the pattern (e.g. "v1.3.0-fix") would cut EVERYONE off
-            // from updates silently - leave a trace for diagnosis
-            Diag.Once("update-tag", "Could not parse the latest release tag as a version: " + tag);
-            return null;
-        }
-        if (latest <= CurrentVersion)
-            return null;
-
-        foreach (var asset in doc.RootElement.GetProperty("assets").EnumerateArray())
-        {
-            string name = asset.GetProperty("name").GetString() ?? "";
-            // EXACT name: the release also carries the installer (...-Setup.exe)
-            // and "first .exe" could grab it - we would replace ourselves with the setup
-            if (name.Equals("SpotDock.exe", StringComparison.OrdinalIgnoreCase))
-                return (latest, asset.GetProperty("browser_download_url").GetString() ?? "");
-        }
-        return null;
+        return UpdateReleaseParser.Parse(json, CurrentVersion);
     }
 
     private static bool _updating;

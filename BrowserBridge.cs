@@ -29,12 +29,18 @@ public sealed class BrowserBridge
     private static readonly byte[] Guid =
         Encoding.ASCII.GetBytes("258EAFA5-E914-47DA-95CA-C5AB0DC85B11");
 
+    private readonly int _port;
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
     private readonly object _gate = new();
     private BrowserState? _state;
     private NetworkStream? _client;
     private readonly SemaphoreSlim _sendGate = new(1, 1);
+
+    public BrowserBridge(int port = Port) => _port = port;
+
+    /// <summary>The actual TCP port currently bound (equals <see cref="Port"/> in production).</summary>
+    public int ListeningPort => (_listener?.LocalEndpoint as IPEndPoint)?.Port ?? _port;
 
     /// <summary>The track/state changed.</summary>
     public event Action? Changed;
@@ -76,14 +82,14 @@ public sealed class BrowserBridge
         _cts = new CancellationTokenSource();
         try
         {
-            _listener = new TcpListener(IPAddress.Loopback, Port);
+            _listener = new TcpListener(IPAddress.Loopback, _port);
             _listener.Start();
         }
         catch (Exception ex)
         {
             // The port is taken by another copy of the widget - not fatal,
             // the browser source just will not work in this window
-            Diag.Once("bridge-listen", $"Browser bridge could not listen on 127.0.0.1:{Port}: {ex.Message}");
+            Diag.Once("bridge-listen", $"Browser bridge could not listen on 127.0.0.1:{_port}: {ex.Message}");
             try { _cts?.Dispose(); } catch { }
             _cts = null;
             _listener = null;
@@ -144,7 +150,7 @@ public sealed class BrowserBridge
                 if (opcode == 0x8) break;                       // close
                 if (opcode == 0x9)                              // ping -> pong
                 {
-                    await SendFrameAsync(stream, 0xA, payload, ct);
+                    await SendFrameLockedAsync(stream, 0xA, payload, ct);
                     continue;
                 }
                 if (opcode == 0xA) continue;                    // pong
@@ -388,7 +394,7 @@ public sealed class BrowserBridge
         else TimelineChanged?.Invoke();
     }
 
-    private static bool IsSpotifyHost(string host) =>
+    internal static bool IsSpotifyHost(string host) =>
         host.Equals("open.spotify.com", StringComparison.OrdinalIgnoreCase) ||
         host.EndsWith(".spotify.com", StringComparison.OrdinalIgnoreCase);
 
@@ -408,6 +414,15 @@ public sealed class BrowserBridge
         : v.ValueKind == JsonValueKind.False ? false
         : null;
 
+    private async Task SendFrameLockedAsync(NetworkStream stream, int opcode, byte[] payload, CancellationToken ct)
+    {
+        // One frame at a time: dragging sliders or receiving pings can overlap
+        // with commands, and two interleaved writes on one stream tear frames.
+        await _sendGate.WaitAsync(ct);
+        try { await SendFrameAsync(stream, opcode, payload, ct); }
+        finally { _sendGate.Release(); }
+    }
+
     /// <summary>Sends a command to the extension; goes silently nowhere if no
     /// browser is connected.</summary>
     public void Send(string cmd, double? pos = null)
@@ -421,13 +436,8 @@ public sealed class BrowserBridge
             : $"{{\"cmd\":\"{cmd}\"}}";
         _ = Task.Run(async () =>
         {
-            // One frame at a time: dragging the volume slider sends commands
-            // in batches, and two writes interleaved on one stream mean a torn
-            // frame and a broken connection
-            await _sendGate.WaitAsync();
-            try { await SendFrameAsync(stream, 0x1, Encoding.UTF8.GetBytes(json), CancellationToken.None); }
+            try { await SendFrameLockedAsync(stream, 0x1, Encoding.UTF8.GetBytes(json), CancellationToken.None); }
             catch { lock (_gate) { if (ReferenceEquals(_client, stream)) _client = null; } }
-            finally { _sendGate.Release(); }
         });
     }
 }

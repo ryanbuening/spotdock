@@ -3,8 +3,10 @@
 
 #define MyAppName "SpotDock"
 #define MyAppShortName "SpotDock"
-#define MyAppVersion "2.0.0"
-#define MyAppPublisher "mcdima0001"
+#ifndef MyAppVersion
+  #define MyAppVersion "2.0.0"
+#endif
+#define MyAppPublisher "ryanbuening"
 #define MyAppURL "https://github.com/ryanbuening/spotdock"
 #define MyAppExeName "SpotDock.exe"
 

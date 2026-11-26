@@ -54,9 +54,11 @@ public sealed class MediaHub
     private string _artUrl = "";
     private byte[]? _artBytes;
     private DateTime _artRetryAt;
+    private long _artGeneration;
 
     public void ClearArtCache()
     {
+        Interlocked.Increment(ref _artGeneration);
         _artUrl = "";
         _artBytes = null;
     }
@@ -78,20 +80,13 @@ public sealed class MediaHub
     /// <summary>The tab has a favorite button - the window may show its own.</summary>
     public bool BrowserCanLike => _browserActive && _browser.Current is { CanLike: true };
 
-    private static bool IsSpotifyPwaAppId(string? appId) =>
-        (appId ?? "").Contains("open.spotify.com", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsSpotifyDesktopAppId(string? appId) =>
-        (appId ?? "").Contains("spotify", StringComparison.OrdinalIgnoreCase) &&
-        !IsSpotifyPwaAppId(appId);
-
     /// <summary>The active SMTC session belongs to Spotify Desktop (not a
     /// browser-hosted Spotify Web PWA).</summary>
     public bool IsSpotifySmtcSource =>
-        !_useBrowser && IsSpotifyDesktopAppId(_smtc.SourceAppId);
+        !_useBrowser && MediaArbitration.IsSpotifyDesktopAppId(_smtc.SourceAppId);
 
     private bool IsSpotifyPwaSmtc =>
-        !_useBrowser && IsSpotifyPwaAppId(_smtc.SourceAppId);
+        !_useBrowser && MediaArbitration.IsSpotifyPwaAppId(_smtc.SourceAppId);
 
     private Task? _init;
 
@@ -107,27 +102,14 @@ public sealed class MediaHub
         _browser.Changed += () => Changed?.Invoke();
         _browser.TimelineChanged += () => TimelineChanged?.Invoke();
         _browser.FocusReady += OnBrowserFocused;
-        if (!TestSwitches.NoBridge) _browser.Start();
-        if (!TestSwitches.NoSmtc) await _smtc.InitializeAsync();
+        _browser.Start();
+        await _smtc.InitializeAsync();
     }
 
     public void Shutdown()
     {
         _smtc.Shutdown();
         _browser.Shutdown();
-    }
-
-    /// <summary>Which source is in charge right now. A playing source beats a
-    /// paused one; on a tie - the system session, because desktop players give
-    /// more (artwork, favorites).</summary>
-    private static bool PreferBrowser(TrackInfo? smtc, BrowserState? browser)
-    {
-        bool smtcOk = smtc != null && !string.IsNullOrWhiteSpace(smtc.Title);
-        bool browserOk = browser != null && !string.IsNullOrWhiteSpace(browser.Title);
-        if (!browserOk) return false;
-        if (!smtcOk) return true;
-        if (smtc!.IsPlaying) return false;
-        return browser!.Playing;
     }
 
     private static TrackInfo FromBrowser(BrowserState b) => new(
@@ -138,19 +120,14 @@ public sealed class MediaHub
     {
         var smtc = await _smtc.GetTrackAsync();
         var browser = _browser.Current;
-        _useBrowser = PreferBrowser(smtc, browser);
+        _useBrowser = MediaArbitration.PreferBrowser(smtc, browser);
         bool pwaBridge = IsSpotifyPwaSmtc && browser != null;
         _browserActive = _useBrowser || pwaBridge;
-        _browserTrackMatches = _useBrowser || (pwaBridge && SamePlayback(smtc, browser));
+        _browserTrackMatches = _useBrowser || (pwaBridge && MediaArbitration.SamePlayback(smtc, browser));
         if (!_useBrowser || browser == null || !string.Equals(browser.Art, _artUrl, StringComparison.Ordinal))
             ClearArtCache();
         return _useBrowser ? FromBrowser(browser!) : smtc;
     }
-
-    private static bool SamePlayback(TrackInfo? smtc, BrowserState? browser) =>
-        smtc != null && browser != null &&
-        !string.IsNullOrWhiteSpace(smtc.Title) && !string.IsNullOrWhiteSpace(browser.Title) &&
-        string.Equals(smtc.Title.Trim(), browser.Title.Trim(), StringComparison.OrdinalIgnoreCase);
 
     public (TimeSpan Position, TimeSpan Duration, bool IsPlaying, DateTime PositionAtUtc)? GetTimeline()
     {
@@ -181,21 +158,32 @@ public sealed class MediaHub
             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
             return null;
 
+        long generation = Volatile.Read(ref _artGeneration);
         try
         {
             var bytes = await DownloadArtAsync(uri);
             // Artwork is tens of kilobytes; there is no point downloading anything bigger
             if (bytes == null || bytes.Length > MaxArtBytes) return null;
-            _artUrl = url;
-            _artBytes = bytes;
+            if (Volatile.Read(ref _artGeneration) == generation &&
+                _useBrowser &&
+                string.Equals(_browser.Current?.Art, url, StringComparison.Ordinal))
+            {
+                _artUrl = url;
+                _artBytes = bytes;
+            }
             return bytes;
         }
         catch (Exception ex)
         {
             Diag.Once("art-download", "Downloading cover art from the browser failed: " + ex.Message);
-            _artUrl = url;
-            _artBytes = null;
-            _artRetryAt = DateTime.UtcNow + TimeSpan.FromSeconds(15);
+            if (Volatile.Read(ref _artGeneration) == generation &&
+                _useBrowser &&
+                string.Equals(_browser.Current?.Art, url, StringComparison.Ordinal))
+            {
+                _artUrl = url;
+                _artBytes = null;
+                _artRetryAt = DateTime.UtcNow + TimeSpan.FromSeconds(15);
+            }
             return null;
         }
     }
