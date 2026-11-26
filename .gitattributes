@@ -1,0 +1,23 @@
+# Line endings, applied regardless of the user's core.autocrlf setting.
+# The repository stores LF; Windows sources are checked out with CRLF because
+# that is what Visual Studio, MSBuild and Inno Setup expect.
+* text=auto
+
+*.cs        text eol=crlf
+*.csproj    text eol=crlf
+*.sln       text eol=crlf
+*.iss       text eol=crlf
+*.ps1       text eol=crlf
+*.manifest  text eol=crlf
+*.config    text eol=crlf
+
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+*.js        text eol=lf
+
+*.png       binary
+*.ico       binary
+*.gif       binary
+*.exe       binary

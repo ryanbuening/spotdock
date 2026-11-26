@@ -1,0 +1,54 @@
+name: Build installer
+
+# A tag like v1.3.0 builds the installer and attaches it to the release.
+# A push to main builds the same thing but only puts the file into the
+# artifacts - so a broken build shows up immediately, not at release time.
+on:
+  push:
+    tags: ["v*"]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # Windows only: Win32 / Direct2D / WinRT NativeAOT build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "11.0.x"
+
+      - name: Build widget
+        run: dotnet publish SpotDock.csproj -c Release -o publish
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        # The parentheses are required: PowerShell reads $env:ProgramFiles(x86)
+        # as the variable ProgramFiles followed by the text "(x86)"
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" setup.iss'
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: installer
+          path: installer/*.exe
+
+      # Separately - the bare exe: handy for updating an already installed
+      # widget without running the installer
+      - uses: actions/upload-artifact@v7
+        with:
+          name: widget-exe
+          path: publish/SpotDock.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: installer/*.exe
+          generate_release_notes: true

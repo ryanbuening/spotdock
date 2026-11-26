@@ -1,0 +1,22 @@
+root = true
+
+# Keep the working tree consistent with .gitattributes: Windows sources are
+# CRLF, cross-platform files are LF. Editors that honour EditorConfig will not
+# silently convert one into the other.
+[*]
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,csproj,sln,iss,ps1,manifest,config}]
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+
+[*.{md,yml,yaml,json,js}]
+end_of_line = lf
+indent_style = space
+indent_size = 2
+
+[*.cs]
+indent_size = 4

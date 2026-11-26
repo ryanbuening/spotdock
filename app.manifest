@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <!-- Privileges: strictly as the launching user. Without an EXPLICIT
+       declaration Windows applies its "installer detection" heuristic and
+       decides on its own - and it decided the widget needed administrator.
+       The consequences were silent and confusing for weeks: autostart entries
+       that need UAC are skipped by Explorer without any message at all (the
+       widget would not start from the registry or the Startup folder), and a
+       scheduled task failed with 0x800702E4 (ERROR_ELEVATION_REQUIRED).
+       The widget does not need administrator: even the installer is set to
+       PrivilegesRequired=lowest -->
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <requestedExecutionLevel level="asInvoker" uiAccess="false"/>
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+    </windowsSettings>
+  </application>
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 / 11 -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+</assembly>
