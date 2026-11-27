@@ -229,13 +229,20 @@ its `_media` field changed from `MediaService` to `MediaHub`.
   then restores `WS_EX_NOACTIVATE` on return. Dark/light styling is applied via
   `uxtheme.dll` ordinals `#135`/`#136`.
   **Dismissing by clicking off activates the taskbar, which rises above the
-  widget in the topmost band.** `ReassertTopmost` has to stand aside while the
-  menu is open (otherwise the widget covers its own menu), and the click that
-  raised the bar happened before the close - so no foreground event comes
-  afterwards to put the widget back. It stayed behind the bar until the
-  once-a-second topmost tick: opening Brightness and clicking off made the
-  widget "disappear" for up to a second. The menu-close path now reasserts
-  immediately.
+  widget in the topmost band.** `EnsureAboveWindow` inserts the widget right
+  above `Shell_TrayWnd` (skipping hidden/owned helper windows such as the
+  taskbar's dormant `[0,0,0,0]` `tooltips_class32` window) so reassertion stays
+  above the taskbar without jumping over the open menu, and `ShowContextMenu`
+  avoids re-activating `Shell_TrayWnd` or stealing focus if another window was
+  clicked.
+- **The widget is owned by `Shell_TrayWnd` via `GWLP_HWNDPARENT`.** When the
+  user clicks the tray overflow arrow, right-clicks taskbar icons, or
+  click-and-holds to drag tray icons, Explorer continuously raises
+  `Shell_TrayWnd` to `HWND_TOPMOST`. Any out-of-process WinEvent or timer
+  reassertion runs asynchronously *after* `Shell_TrayWnd` jumps ahead for that
+  frame, causing visible flicker. Making `Shell_TrayWnd` the widget's Win32
+  owner forces `win32k` to keep `SpotDock_Main` above `Shell_TrayWnd`
+  atomically inside `SetWindowPos`.
 - **Hit-testing is kept alive at any brightness.** The layered surface fills its
   rounded bounds with `#01000000` *before* applying `_settings.Opacity` to the
   foreground content, so clicks and hover never fall through even at 20%

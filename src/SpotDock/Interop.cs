@@ -336,6 +336,45 @@ internal static unsafe class Interop
     public static void EnsureTopmost(IntPtr hwnd) =>
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
+    /// <summary>Places hwnd immediately above target in the TOPMOST band so it
+    /// stays in front of the taskbar without jumping over open menus or flyouts.
+    /// Skips hidden/owned/zero-sized helper windows above target (such as its
+    /// dormant tooltips_class32 window) because SetWindowPos relative to an
+    /// invisible or owned window can leave hwnd behind target. Falls back to
+    /// HWND_TOPMOST only when allowed and no real visible topmost anchor sits
+    /// above target.</summary>
+    public static void EnsureAboveWindow(IntPtr hwnd, IntPtr target, bool allowTopmostFallback = true)
+    {
+        if (hwnd == IntPtr.Zero) return;
+        if (target == IntPtr.Zero)
+        {
+            if (allowTopmostFallback) EnsureTopmost(hwnd);
+            return;
+        }
+
+        IntPtr anchor = IntPtr.Zero;
+        IntPtr cur = GetWindow(target, GW_HWNDPREV);
+        for (int i = 0; i < 64 && cur != IntPtr.Zero; i++, cur = GetWindow(cur, GW_HWNDPREV))
+        {
+            if (cur == hwnd) continue;
+            if ((GetWindowLong(cur, GWL_EXSTYLE) & WS_EX_TOPMOST) == 0) break;
+            if (!IsWindowVisible(cur)) continue;
+            if (GetWindow(cur, GW_OWNER) == target) continue;
+            if (!GetWindowRect(cur, out RECT r) || r.Right <= r.Left || r.Bottom <= r.Top) continue;
+            anchor = cur;
+            break;
+        }
+
+        if (anchor != IntPtr.Zero)
+        {
+            SetWindowPos(hwnd, anchor, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            if (IsAboveWindow(hwnd, target)) return;
+        }
+
+        if (allowTopmostFallback)
+            EnsureTopmost(hwnd);
+    }
+
     private const uint SWP_NOZORDER = 0x0004;
 
     /// <summary>Moves the window to PHYSICAL coordinates (px). Positioning in raw px
@@ -420,27 +459,26 @@ internal static unsafe class Interop
         if (!coversMonitor)
             return false;
 
-        // Covers the whole screen. These classes serve both harmless shell overlays
-        // (Start menu, emoji/dictation, screen snip) and fullscreen UWP games
-        // (Store Forza, issue #5) - tell them apart by the process.
+        // Covers the whole screen. These classes and shell hosts serve harmless shell
+        // overlays (Start menu, Win11 XAML light-dismiss overlays, emoji/dictation,
+        // screen snip) as well as fullscreen UWP games (Store Forza, issue #5) —
+        // tell them apart by process.
         // The process lookup is paid ONLY here: windows that do not cover the
-        // screen never reach this point (it used to run for any focused UWP app).
-        if (cls.SequenceEqual("Windows.UI.Core.CoreWindow")
-            || cls.SequenceEqual("ApplicationFrameWindow"))
+        // screen never reach this point.
+        GetWindowThreadProcessId(hwnd, out uint pid);
+        try
         {
-            GetWindowThreadProcessId(hwnd, out uint pid);
-            try
-            {
-                using var p = System.Diagnostics.Process.GetProcessById((int)pid);
-                if (p.ProcessName is "explorer" or "StartMenuExperienceHost" or "SearchHost"
-                    or "ShellExperienceHost" or "ShellHost" or "SearchApp" or "SearchUI"
-                    or "Cortana" or "LockApp" or "TextInputHost" or "ScreenClippingHost")
-                    return false;
-            }
-            catch
-            {
-                return false; // process already died: treat as shell (harmless)
-            }
+            using var p = System.Diagnostics.Process.GetProcessById((int)pid);
+            if (p.ProcessName is "StartMenuExperienceHost" or "SearchHost"
+                or "ShellExperienceHost" or "ShellHost" or "SearchApp" or "SearchUI"
+                or "Cortana" or "LockApp" or "TextInputHost" or "ScreenClippingHost")
+                return false;
+            if (p.ProcessName == "explorer" && !cls.SequenceEqual("CabinetWClass"))
+                return false;
+        }
+        catch
+        {
+            return false; // process already died: treat as shell (harmless)
         }
 
         return true;

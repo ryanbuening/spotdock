@@ -112,7 +112,6 @@ internal sealed partial class WidgetWindow
     private bool _fullscreenNow;
     private bool _fullscreenQueryRunning;
     private DateTime _fullscreenAt = DateTime.MinValue;
-    private DateTime _topmostAt = DateTime.MinValue;
     private bool _leftAlignedCached;
     private DateTime _leftAlignedAt = DateTime.MinValue;
     private bool _autoHideCached;
@@ -136,6 +135,7 @@ internal sealed partial class WidgetWindow
     private DateTime _anchorsDirtyAt = DateTime.MinValue;
     private IntPtr _trayLocHook;
     private IntPtr _hookedTray;
+    private IntPtr _ownerTray;
     private Interop.WinEventDelegate? _trayLocProc;
     private bool _updateQueued;
 
@@ -371,10 +371,10 @@ internal sealed partial class WidgetWindow
         {
             if (_current is not { } win || win._closed) return;
             if (!win._visible && !win._fullscreenNow) return;
+            if (win._visible) win.ReassertTopmost();
             UiThread.Post(() =>
             {
                 if (win._closed) return;
-                if (win._visible) win.ReassertTopmost();
                 win._fullscreenAt = DateTime.MinValue;
                 win.UpdatePosition();
             });
@@ -841,6 +841,7 @@ internal sealed partial class WidgetWindow
             Interop.UnhookWinEvent(_trayLocHook);
             _trayLocHook = IntPtr.Zero;
         }
+        _ownerTray = IntPtr.Zero;
 
         try { _closeCts.Cancel(); } catch { }
         _closeCts.Dispose();

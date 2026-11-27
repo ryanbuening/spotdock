@@ -114,6 +114,15 @@ internal sealed partial class WidgetWindow
             IntPtr.Zero, _trayLocProc, pid, tid, Interop.WINEVENT_OUTOFCONTEXT);
     }
 
+    private void EnsureTrayOwner(IntPtr tray)
+    {
+        if (tray == IntPtr.Zero || tray == _ownerTray || _hwnd == HWND.Null) return;
+        Interop.SetWindowLongPtr(HwndPtr, Interop.GWLP_HWNDPARENT, tray);
+        _ownerTray = tray;
+        if (_visible)
+            Interop.EnsureAboveWindow(HwndPtr, tray, allowTopmostFallback: !AnyPopupOpen);
+    }
+
     private void UpdatePosition()
     {
         _updateQueued = false;
@@ -128,6 +137,7 @@ internal sealed partial class WidgetWindow
             return;
         }
 
+        EnsureTrayOwner(tray);
         EnsureTrayLocationHook(tray);
 
         int trayHeightPx = r.Bottom - r.Top;
@@ -321,12 +331,7 @@ internal sealed partial class WidgetWindow
         Interop.ClipWindowBottom(HwndPtr, winWidth, winHeight, monitorBottomPx - topPx);
 
         ShowWidget();
-
-        if (DateTime.UtcNow - _topmostAt > TimeSpan.FromSeconds(1))
-        {
-            _topmostAt = DateTime.UtcNow;
-            ReassertTopmost();
-        }
+        ReassertTopmost();
     }
 
     private void ShowWidget()
@@ -380,9 +385,10 @@ internal sealed partial class WidgetWindow
 
     private void ReassertTopmost()
     {
-        if (!_visible || AnyPopupOpen || _hwnd == HWND.Null) return;
-        if (!Interop.IsAboveWindow(HwndPtr, GetTargetTray()))
-            Interop.EnsureTopmost(HwndPtr);
+        if (!_visible || _hwnd == HWND.Null) return;
+        IntPtr tray = GetTargetTray();
+        if (!Interop.IsAboveWindow(HwndPtr, tray))
+            Interop.EnsureAboveWindow(HwndPtr, tray, allowTopmostFallback: !AnyPopupOpen);
     }
 
     private bool IsFullscreenNow(IntPtr tray)

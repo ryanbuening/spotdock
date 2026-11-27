@@ -23,8 +23,9 @@ internal sealed partial class WidgetWindow
 
         Interop.ApplyMenuTheme(_lightTheme == true);
 
+        IntPtr tray = GetTargetTray();
         IntPtr fg = Interop.GetForegroundWindow();
-        IntPtr fgBefore = fg == HwndPtr ? IntPtr.Zero : fg;
+        IntPtr fgBefore = (fg == HwndPtr || fg == tray) ? IntPtr.Zero : fg;
 
         HMENU menu = PInvoke.CreatePopupMenu();
         HMENU brightMenu = PInvoke.CreatePopupMenu();
@@ -71,7 +72,6 @@ internal sealed partial class WidgetWindow
 
             Interop.GetCursorPos(out var curPt);
             int menuY = curPt.Y;
-            IntPtr tray = GetTargetTray();
             if (tray != IntPtr.Zero && Interop.GetWindowRect(tray, out var tr))
             {
                 Interop.GetTaskbarVisiblePx(tr, out int monitorBottomPx, out int workAreaBottomPx);
@@ -94,16 +94,12 @@ internal sealed partial class WidgetWindow
             _contextMenuOpen = false;
             _menuClosedAt = DateTime.UtcNow;
 
-            if (fgBefore != IntPtr.Zero && Interop.GetForegroundWindow() != fgBefore)
+            if (fgBefore != IntPtr.Zero && Interop.GetForegroundWindow() == HwndPtr)
                 Interop.SetForegroundWindow(fgBefore);
 
             // Dismissing the menu by clicking off often activates the taskbar,
-            // which rises above the widget in the topmost band. ReassertTopmost
-            // deliberately stood aside while the menu was open (any popup), and
-            // the click that raised the taskbar happened before the close, so
-            // no later foreground change brings the widget back. Without this
-            // it stayed hidden under the bar until the once-a-second topmost
-            // tick - it "disappeared" for up to a second after closing a menu.
+            // which rises above the widget in the topmost band. Reassert above
+            // the taskbar immediately on close.
             ReassertTopmost();
 
             if (cmd != 0)
