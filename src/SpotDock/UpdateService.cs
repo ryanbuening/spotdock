@@ -12,8 +12,9 @@ namespace SpotDock;
 /// asset and replaces the current one (through a script that waits for the
 /// app to close).
 /// To publish an update:
-///  1. raise <Version> in the .csproj and publish;
-///  2. create a GitHub release tagged "vX.Y.Z" with SpotDock.exe attached.
+///  Pushing to main automatically computes the next "vX.Y.Z" version and
+///  publishes a GitHub release with SpotDock.exe attached (raise <Version> in
+///  SpotDock.csproj for minor or major jumps).
 /// </summary>
 internal static class UpdateService
 {

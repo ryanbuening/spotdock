@@ -1,11 +1,12 @@
 name: Build installer
 
-# A tag like v2.0.0 builds the installer and bare exe and attaches both to the
-# GitHub release. Pushes to main and pull requests build and run unit tests so
-# breakages show up immediately.
+# Pushes to main run tests, build the widget and installer, auto-compute the
+# next vX.Y.Z version (patch bump from the latest v* tag, or SpotDock.csproj
+# <Version> if higher / no tags exist), and publish a GitHub Release with
+# SpotDock-Setup.exe and SpotDock.exe. Pull requests and workflow_dispatch
+# build, test, and upload workflow artifacts without publishing a release.
 on:
   push:
-    tags: ["v*"]
     branches: [main]
   pull_request:
     branches: [main]
@@ -14,12 +15,18 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
 jobs:
   build:
     # Windows only: Win32 / Direct2D / WinRT NativeAOT build
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v6
         with:
@@ -30,20 +37,41 @@ jobs:
         shell: pwsh
         run: |
           [xml]$csproj = Get-Content src/SpotDock/SpotDock.csproj
-          $csprojVer = ($csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1).Trim()
-          if ("${{ github.ref }}".StartsWith("refs/tags/v")) {
-            $version = "${{ github.ref }}".Substring("refs/tags/v".Length)
+          $csprojRaw = ($csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1).Trim()
+          $parsedCsproj = [version]$csprojRaw
+          $csprojVer = [version]::new($parsedCsproj.Major, $parsedCsproj.Minor, [Math]::Max($parsedCsproj.Build, 0))
+
+          if ("${{ github.event_name }}" -eq "push" -and "${{ github.ref }}" -eq "refs/heads/main") {
+            $tagVersions = @(git tag -l "v*") | ForEach-Object {
+              $v = $null
+              if ([version]::TryParse($_.Trim().TrimStart('v', 'V'), [ref]$v)) {
+                [version]::new($v.Major, $v.Minor, [Math]::Max($v.Build, 0))
+              }
+            }
+            $latestTag = $tagVersions | Sort-Object -Descending | Select-Object -First 1
+            if ($null -eq $latestTag -or $csprojVer -gt $latestTag) {
+              $nextVer = $csprojVer
+            } else {
+              $nextVer = [version]::new($latestTag.Major, $latestTag.Minor, $latestTag.Build + 1)
+            }
           } else {
-            $version = $csprojVer
+            $nextVer = $csprojVer
           }
+
+          $version = "$($nextVer.Major).$($nextVer.Minor).$($nextVer.Build)"
+          $tag = "v$version"
+
           $manifest = Get-Content src/spotdock-bridge/manifest.json -Raw | ConvertFrom-Json
           if ($manifest.version -ne $version) {
-            Write-Host "::warning::src/spotdock-bridge/manifest.json version ($($manifest.version)) differs from build version ($version); syncing for packaging."
+            $prevManifestVersion = $manifest.version
             $manifest.version = $version
             $manifest | ConvertTo-Json -Depth 10 | Set-Content src/spotdock-bridge/manifest.json -Encoding utf8
+            Write-Host "Synced src/spotdock-bridge/manifest.json version from $prevManifestVersion to $version for packaging."
           }
+
           "version=$version" >> $env:GITHUB_OUTPUT
-          Write-Host "Build version: $version"
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          Write-Host "Build version: $version (tag: $tag)"
 
       - name: Run unit tests
         run: dotnet test tests/SpotDock.Tests/SpotDock.Tests.csproj -c Release
@@ -72,9 +100,12 @@ jobs:
           path: artifacts/publish/SpotDock.exe
 
       - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: |
             artifacts/installer/*.exe
             artifacts/publish/SpotDock.exe

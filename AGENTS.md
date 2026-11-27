@@ -272,10 +272,13 @@ under `artifacts/installer/`) containing the standalone NativeAOT `SpotDock.exe`
 and the extension next to it in `spotdock-bridge` (no .NET runtime required). It
 installs into the user profile (`PrivilegesRequired=lowest`) and does not ask for UAC.
 
-Release: `git tag vX.Y.Z && git push origin vX.Y.Z`. Then
-`.github/workflows/release.yml` builds on a windows runner and attaches the exe to
-the release itself; a push to `main` builds the same thing into artifacts so a
-breakage is visible immediately.
+Release: pushes to `main` trigger `.github/workflows/release.yml`, which
+automatically runs unit tests, computes the next `vX.Y.Z` version (patch bump
+from the latest `v*` tag, or jumping to `SpotDock.csproj`'s `<Version>` when
+higher or when no tags exist), syncs `src/spotdock-bridge/manifest.json` for
+packaging, builds `SpotDock-Setup.exe` and `SpotDock.exe` on a Windows runner,
+and publishes them to GitHub Releases. Raise `<Version>` in
+`src/SpotDock/SpotDock.csproj` for minor or major jumps.
 
 Installer pitfalls:
 
