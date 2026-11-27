@@ -11,6 +11,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- Minimum floor & local-build default: CI auto-increments patch versions
+         from the latest v* git tag via -p:Version=... without committing back
+         to main. Raise this value only for minor/major jumps. -->
     <Version>2.0.0</Version>
     <Product>SpotDock</Product>
     <AssemblyTitle>SpotDock</AssemblyTitle>
