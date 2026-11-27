@@ -39,8 +39,8 @@ public sealed class WidgetSettingsTests
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         try
         {
-            // Legacy v1 with AutoPosition=false and null dictionaries
-            File.WriteAllText(path, """{"AutoPosition":false,"X":320,"Opacity":1.0,"SettingsVersion":1,"ManualX":null,"ManualGap":null,"WidgetsAnchor":null}""");
+            // Legacy v1 with AutoPosition=false, removed StretchText key, and null dictionaries
+            File.WriteAllText(path, """{"AutoPosition":false,"X":320,"Opacity":1.0,"StretchText":true,"SettingsVersion":1,"ManualX":null,"ManualGap":null,"WidgetsAnchor":null}""");
             var migrated = WidgetSettings.LoadFrom(path);
             Assert.Equal(2, migrated.SettingsVersion);
             Assert.Equal(0.5, migrated.Opacity);
@@ -70,7 +70,6 @@ public sealed class WidgetSettingsTests
             {
                 Opacity = 0.75,
                 ShowArt = false,
-                StretchText = true,
                 ShowProgress = false,
                 SettingsVersion = 2,
             };
@@ -80,7 +79,6 @@ public sealed class WidgetSettingsTests
             var loaded = WidgetSettings.LoadFrom(path);
             Assert.Equal(0.75, loaded.Opacity);
             Assert.False(loaded.ShowArt);
-            Assert.True(loaded.StretchText);
             Assert.False(loaded.ShowProgress);
             Assert.False(loaded.AutoPosition);
             Assert.Equal(412, loaded.X);

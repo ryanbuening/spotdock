@@ -10,7 +10,7 @@ extension), while ignoring all other media apps and websites.
 - **Spotify Desktop (`MediaService.cs`)**: Filters Windows SMTC sessions strictly
   to `SourceAppUserModelId` containing `"spotify"`, watching only Spotify sessions
   and never falling back to other players or `GetCurrentSession()`.
-- **Spotify Web / PWA (`spotdock-bridge/` + `BrowserBridge.cs`)**: The MV3
+- **Spotify Web / PWA (`src/spotdock-bridge/` + `BrowserBridge.cs`)**: The MV3
   extension (`SpotDock Bridge`) is scoped to `https://open.spotify.com/*` and
   reads `navigator.mediaSession` plus Spotify Web player controls/slider state.
   `BrowserBridge` runs a local WebSocket server on `127.0.0.1:45219` (accepting
@@ -30,14 +30,17 @@ extension), while ignoring all other media apps and websites.
 
 | File | Role |
 |---|---|
-| `spotdock-bridge/` | MV3 extension (`SpotDock Bridge`): scoped to `open.spotify.com`, reads `navigator.mediaSession` and player controls |
-| `BrowserBridge.cs` | The widget's WebSocket server on `127.0.0.1:45219`, accepts `Origin: chrome-extension://` and `*.spotify.com` hosts |
-| `MediaHub.cs` | The shared source: Spotify SMTC plus Spotify Web behind a single interface |
-| `SourceActivator.cs` | A click on the title reveals the Spotify window found by AUMID (or the Spotify Web tab through the extension) |
-| `WidgetWindow.cs` | Win32 layered taskbar window, positioning, animations, input, and native context menu |
-| `D2DRenderer.cs` | Software Direct2D (`ID2D1DCRenderTarget`) + DirectWrite + WIC rendering into a 32-bpp DIB surface |
-| `UiThread.cs` | STA message-only dispatch window and `UiSynchronizationContext` for async continuations |
-| `NativeUia.cs` | AOT-safe native COM `IUIAutomation` helpers (`TaskbarAnchors.cs`, `SpotifyUiaService.cs`) |
+| `src/spotdock-bridge/` | MV3 extension (`SpotDock Bridge`): scoped to `open.spotify.com`, reads `navigator.mediaSession` and player controls |
+| `src/SpotDock/BrowserBridge.cs` | The widget's WebSocket server on `127.0.0.1:45219`, accepts `Origin: chrome-extension://` and `*.spotify.com` hosts |
+| `src/SpotDock/MediaHub.cs` | The shared source: Spotify SMTC plus Spotify Web behind a single interface |
+| `src/SpotDock/SourceActivator.cs` | A click on the title reveals the Spotify window found by AUMID (or the Spotify Web tab through the extension) |
+| `src/SpotDock/WidgetWindow.cs` | Win32 layered taskbar window, positioning, animations, input, and native context menu |
+| `src/SpotDock/UiStrings.cs` | English UI strings for menus, idle state, and update prompts |
+| `src/SpotDock/D2DRenderer.cs` | Software Direct2D (`ID2D1DCRenderTarget`) + DirectWrite + WIC rendering into a 32-bpp DIB surface |
+| `src/SpotDock/UiThread.cs` | STA message-only dispatch window and `UiSynchronizationContext` for async continuations |
+| `src/SpotDock/NativeUia.cs` | AOT-safe native COM `IUIAutomation` helpers (`TaskbarAnchors.cs`, `SpotifyUiaService.cs`) |
+| `tests/SpotDock.Tests/` | xUnit tests for arbitration, WebSocket bridge, settings, and release parsing |
+| `build/setup.iss` | Inno Setup 6 installer script outputting into `artifacts/installer/` |
 
 The window (`WidgetWindow.cs`) knows nothing about the browser: only the type of
 its `_media` field changed from `MediaService` to `MediaHub`.
@@ -225,6 +228,14 @@ its `_media` field changed from `MediaService` to `MediaHub`.
   so clicking outside dismisses the menu natively (no watchdog timer needed),
   then restores `WS_EX_NOACTIVATE` on return. Dark/light styling is applied via
   `uxtheme.dll` ordinals `#135`/`#136`.
+  **Dismissing by clicking off activates the taskbar, which rises above the
+  widget in the topmost band.** `ReassertTopmost` has to stand aside while the
+  menu is open (otherwise the widget covers its own menu), and the click that
+  raised the bar happened before the close - so no foreground event comes
+  afterwards to put the widget back. It stayed behind the bar until the
+  once-a-second topmost tick: opening Brightness and clicking off made the
+  widget "disappear" for up to a second. The menu-close path now reasserts
+  immediately.
 - **Hit-testing is kept alive at any brightness.** The layered surface fills its
   rounded bounds with `#01000000` *before* applying `_settings.Opacity` to the
   foreground content, so clicks and hover never fall through even at 20%
@@ -233,18 +244,26 @@ its `_media` field changed from `MediaService` to `MediaHub`.
 ## Build
 
 ```
-dotnet publish SpotDock.csproj -c Release -o out
+build.cmd
+```
+
+Or directly:
+
+```
+dotnet publish src/SpotDock/SpotDock.csproj -c Release -o artifacts/publish
 ```
 
 Requires the .NET 11 SDK, Windows, and Visual Studio C++ Build Tools ("Desktop
-development with C++") for NativeAOT native linking.
+development with C++") for NativeAOT native linking. For local testing without
+C++ Build Tools, `build.cmd local` publishes a framework-dependent build to
+`artifacts/local`.
 
 ## Installer and releases
 
-`setup.iss` builds with Inno Setup 6 into a single exe (`SpotDock-Setup.exe`)
-containing the standalone NativeAOT `SpotDock.exe` and the extension next to it
-in `spotdock-bridge` (no .NET runtime required). It installs into the user
-profile (`PrivilegesRequired=lowest`) and does not ask for UAC.
+`build/setup.iss` builds with Inno Setup 6 into a single exe (`SpotDock-Setup.exe`
+under `artifacts/installer/`) containing the standalone NativeAOT `SpotDock.exe`
+and the extension next to it in `spotdock-bridge` (no .NET runtime required). It
+installs into the user profile (`PrivilegesRequired=lowest`) and does not ask for UAC.
 
 Release: `git tag vX.Y.Z && git push origin vX.Y.Z`. Then
 `.github/workflows/release.yml` builds on a windows runner and attaches the exe to

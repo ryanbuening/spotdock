@@ -16,12 +16,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\AppPaths.cs" Link="Source\AppPaths.cs" />
-    <Compile Include="..\Diag.cs" Link="Source\Diag.cs" />
-    <Compile Include="..\BrowserBridge.cs" Link="Source\BrowserBridge.cs" />
-    <Compile Include="..\MediaArbitration.cs" Link="Source\MediaArbitration.cs" />
-    <Compile Include="..\WidgetSettings.cs" Link="Source\WidgetSettings.cs" />
-    <Compile Include="..\UpdateReleaseParser.cs" Link="Source\UpdateReleaseParser.cs" />
+    <Compile Include="..\..\src\SpotDock\AppPaths.cs" Link="Source\AppPaths.cs" />
+    <Compile Include="..\..\src\SpotDock\Diag.cs" Link="Source\Diag.cs" />
+    <Compile Include="..\..\src\SpotDock\BrowserBridge.cs" Link="Source\BrowserBridge.cs" />
+    <Compile Include="..\..\src\SpotDock\MediaArbitration.cs" Link="Source\MediaArbitration.cs" />
+    <Compile Include="..\..\src\SpotDock\WidgetSettings.cs" Link="Source\WidgetSettings.cs" />
+    <Compile Include="..\..\src\SpotDock\UpdateReleaseParser.cs" Link="Source\UpdateReleaseParser.cs" />
   </ItemGroup>
 
 </Project>

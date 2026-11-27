@@ -1,5 +1,5 @@
 ; Installer for SpotDock with the Spotify Web browser bridge.
-; Build: dotnet publish SpotDock.csproj -c Release -o publish  then  ISCC.exe setup.iss
+; Build: dotnet publish src\SpotDock\SpotDock.csproj -c Release -o artifacts\publish  then  ISCC.exe build\setup.iss
 
 #define MyAppName "SpotDock"
 #define MyAppShortName "SpotDock"
@@ -22,9 +22,9 @@ DefaultDirName={userpf}\SpotDock
 DisableProgramGroupPage=yes
 DisableDirPage=yes
 PrivilegesRequired=lowest
-OutputDir=installer
+OutputDir=..\artifacts\installer
 OutputBaseFilename=SpotDock-Setup
-SetupIconFile=app.ico
+SetupIconFile=..\src\SpotDock\app.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
 SolidCompression=yes
@@ -46,8 +46,8 @@ en.ExtBody=SpotDock works automatically with the Spotify desktop app (classic in
 Name: "autostart"; Description: "{cm:AutoStartTask}"
 
 [Files]
-Source: "publish\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "spotdock-bridge\*"; DestDir: "{app}\spotdock-bridge"; Flags: ignoreversion recursesubdirs
+Source: "..\artifacts\publish\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\src\spotdock-bridge\*"; DestDir: "{app}\spotdock-bridge"; Flags: ignoreversion recursesubdirs
 
 [Icons]
 Name: "{userprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

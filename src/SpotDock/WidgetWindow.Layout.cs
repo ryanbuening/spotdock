@@ -99,7 +99,7 @@ internal sealed partial class WidgetWindow
                 return;
             }
 
-            if (_settings.ManualX.ContainsKey(PrimaryTray) && !_settings.StretchText)
+            if (_settings.ManualX.ContainsKey(PrimaryTray))
                 return;
 
             if ((DateTime.UtcNow - _anchorsDirtyAt).TotalMilliseconds < 150) return;
@@ -205,7 +205,7 @@ internal sealed partial class WidgetWindow
             }
         }
 
-        if (!(_settings.ManualX.ContainsKey(PrimaryTray) && !_settings.StretchText))
+        if (!_settings.ManualX.ContainsKey(PrimaryTray))
             RefreshAnchors(tray);
 
         double? widgetsRightPx, startLeftPx, taskEndPx;
@@ -280,8 +280,7 @@ internal sealed partial class WidgetWindow
         if (_spotifyPresent)
         {
             int availPx = rightAnchored ? rightLimitPx - rightAnchorLeftLimitPx : rightLimitPx - leftPx;
-            bool leftAnchorKnown = rightAnchored ? taskEndPx.HasValue : widgetsRightPx.HasValue;
-            if (!ApplyResponsiveLayout(availPx / _dpiScale, leftAnchorKnown, (r.Right - r.Left) / _dpiScale))
+            if (!ApplyResponsiveLayout(availPx / _dpiScale))
             {
                 _barWasHidden = false;
                 HideWidget();
@@ -468,7 +467,7 @@ internal sealed partial class WidgetWindow
 
     // ---------- Responsive layout ----------
 
-    private bool ApplyResponsiveLayout(double availableDip, bool leftAnchorKnown, double barWidthDip)
+    private bool ApplyResponsiveLayout(double availableDip)
     {
         double avail = availableDip;
         const double IconBtn = 27;
@@ -488,17 +487,7 @@ internal sealed partial class WidgetWindow
         double minText = MinTextWidth + extraText;
         double maxText = MaxTextWidth + extraText;
 
-        double room = Math.Min(maxText, minText + (avail - used));
-        double text;
-        if (_settings.StretchText && leftAnchorKnown)
-        {
-            double cap = Math.Max(maxText, barWidthDip / 2 + extraText);
-            text = Math.Max(minText, Math.Min(minText + (avail - used), cap));
-        }
-        else
-        {
-            text = Math.Max(minText, room);
-        }
+        double text = Math.Max(minText, Math.Min(maxText, minText + (avail - used)));
 
         bool visChanged = _showPrevSlot != prev || _showNextSlot != next || _showLikeSlot != showLike;
         _showPrevSlot = prev;

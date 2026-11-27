@@ -46,11 +46,6 @@ public class WidgetSettings
     /// <summary>Show the album cover to the left of the title.</summary>
     public bool ShowArt { get; set; } = true;
 
-    /// <summary>The text column takes all the free space on the taskbar: the
-    /// widget stretches from the left anchor to the Start button, instead of
-    /// stopping at the width ceiling and leaving an empty strip.</summary>
-    public bool StretchText { get; set; } = false;
-
     /// <summary>Track progress bar at the bottom of the widget (click to seek).</summary>
     public bool ShowProgress { get; set; } = true;
 

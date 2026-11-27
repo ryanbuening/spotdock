@@ -36,8 +36,18 @@ internal sealed partial class WidgetWindow
 
         try
         {
-            fixed (char* pHeader = L.MenuHeader(UpdateService.CurrentVersion))
+            fixed (char* pHeader = UiStrings.MenuHeader(UpdateService.CurrentVersion))
                 PInvoke.AppendMenu(menu, (MENU_ITEM_FLAGS)(MF_STRING | MF_DISABLED | MF_GRAYED), 0, pHeader);
+
+            bool autoStart = PackagedApp.IsPackaged ? IsPackagedAutoStartCached() : IsAutoStartEnabled();
+            AppendMenuStr(menu, IDM_AUTOSTART, UiStrings.AutoStart, autoStart);
+
+            if (UpdateService.IsConfigured && !PackagedApp.IsPackaged)
+            {
+                string updateText = _pendingUpdate is { } u ? UiStrings.UpdateAvailable(u.Version) : UiStrings.CheckUpdates;
+                AppendMenuStr(menu, IDM_UPDATE, updateText, false);
+            }
+
             PInvoke.AppendMenu(menu, (MENU_ITEM_FLAGS)MF_SEPARATOR, 0, null);
 
             if (brightMenu != HMENU.Null)
@@ -49,25 +59,15 @@ internal sealed partial class WidgetWindow
                     int pct = BrightnessPresets[i];
                     AppendMenuStr(brightMenu, IDM_BRIGHTNESS_BASE + (uint)i, $"{pct}%", pct == closest);
                 }
-                fixed (char* pText = L.OpacityMenu)
+                fixed (char* pText = UiStrings.OpacityMenu)
                     PInvoke.AppendMenu(menu, (MENU_ITEM_FLAGS)MF_POPUP, (nuint)brightMenu.Value, pText);
             }
 
-            AppendMenuStr(menu, IDM_ART, L.ShowArt, _settings.ShowArt);
-            AppendMenuStr(menu, IDM_STRETCH_TEXT, L.StretchText, _settings.StretchText);
-            AppendMenuStr(menu, IDM_PROGRESS, L.ProgressBar, _settings.ShowProgress);
-
-            bool autoStart = PackagedApp.IsPackaged ? IsPackagedAutoStartCached() : IsAutoStartEnabled();
-            AppendMenuStr(menu, IDM_AUTOSTART, L.AutoStart, autoStart);
-
-            if (UpdateService.IsConfigured && !PackagedApp.IsPackaged)
-            {
-                string updateText = _pendingUpdate is { } u ? L.UpdateAvailable(u.Version) : L.CheckUpdates;
-                AppendMenuStr(menu, IDM_UPDATE, updateText, false);
-            }
+            AppendMenuStr(menu, IDM_ART, UiStrings.ShowArt, _settings.ShowArt);
+            AppendMenuStr(menu, IDM_PROGRESS, UiStrings.ProgressBar, _settings.ShowProgress);
 
             PInvoke.AppendMenu(menu, (MENU_ITEM_FLAGS)MF_SEPARATOR, 0, null);
-            AppendMenuStr(menu, IDM_EXIT, L.Exit, false);
+            AppendMenuStr(menu, IDM_EXIT, UiStrings.Exit, false);
 
             Interop.GetCursorPos(out var curPt);
             int menuY = curPt.Y;
@@ -96,6 +96,15 @@ internal sealed partial class WidgetWindow
 
             if (fgBefore != IntPtr.Zero && Interop.GetForegroundWindow() != fgBefore)
                 Interop.SetForegroundWindow(fgBefore);
+
+            // Dismissing the menu by clicking off often activates the taskbar,
+            // which rises above the widget in the topmost band. ReassertTopmost
+            // deliberately stood aside while the menu was open (any popup), and
+            // the click that raised the taskbar happened before the close, so
+            // no later foreground change brings the widget back. Without this
+            // it stayed hidden under the bar until the once-a-second topmost
+            // tick - it "disappeared" for up to a second after closing a menu.
+            ReassertTopmost();
 
             if (cmd != 0)
                 HandleMenuCommand(cmd);
@@ -133,12 +142,6 @@ internal sealed partial class WidgetWindow
                 _settings.Save();
                 _artDirty = true;
                 _ = RefreshTrackAsync();
-                UpdatePosition();
-                break;
-
-            case IDM_STRETCH_TEXT:
-                _settings.StretchText = !_settings.StretchText;
-                _settings.Save();
                 UpdatePosition();
                 break;
 
@@ -232,7 +235,7 @@ internal sealed partial class WidgetWindow
     {
         if (!UpdateService.IsConfigured)
         {
-            Interop.ShowMessageBox(HwndPtr, L.UpdateNotConfigured(UpdateService.CurrentVersion), L.AppTitle,
+            Interop.ShowMessageBox(HwndPtr, UiStrings.UpdateNotConfigured(UpdateService.CurrentVersion), UiStrings.AppTitle,
                 MESSAGEBOX_STYLE.MB_OK | MESSAGEBOX_STYLE.MB_ICONINFORMATION);
             return;
         }
@@ -242,20 +245,20 @@ internal sealed partial class WidgetWindow
             var update = _pendingUpdate ?? await UpdateService.CheckAsync();
             if (update == null)
             {
-                Interop.ShowMessageBox(HwndPtr, L.UpdateLatest(UpdateService.CurrentVersion), L.AppTitle,
+                Interop.ShowMessageBox(HwndPtr, UiStrings.UpdateLatest(UpdateService.CurrentVersion), UiStrings.AppTitle,
                     MESSAGEBOX_STYLE.MB_OK | MESSAGEBOX_STYLE.MB_ICONINFORMATION);
                 return;
             }
 
             var answer = Interop.ShowMessageBox(HwndPtr,
-                L.UpdatePrompt(update.Value.Version, UpdateService.CurrentVersion),
-                L.AppTitle, MESSAGEBOX_STYLE.MB_YESNO | MESSAGEBOX_STYLE.MB_ICONINFORMATION);
+                UiStrings.UpdatePrompt(update.Value.Version, UpdateService.CurrentVersion),
+                UiStrings.AppTitle, MESSAGEBOX_STYLE.MB_YESNO | MESSAGEBOX_STYLE.MB_ICONINFORMATION);
             if (answer == MESSAGEBOX_RESULT.IDYES)
                 await UpdateService.DownloadAndApplyAsync(update.Value.Url);
         }
         catch (Exception ex)
         {
-            Interop.ShowMessageBox(HwndPtr, L.UpdateError(ex.Message), L.AppTitle,
+            Interop.ShowMessageBox(HwndPtr, UiStrings.UpdateError(ex.Message), UiStrings.AppTitle,
                 MESSAGEBOX_STYLE.MB_OK | MESSAGEBOX_STYLE.MB_ICONWARNING);
         }
     }

@@ -25,17 +25,23 @@ SpotDock displays whatever is playing (or paused) in **Spotify Desktop** (classi
 - **Taskbar integration:** anchors cleanly to the Windows 11 taskbar (including weather button content), smooth width changes, brightness presets, and auto-hides for fullscreen apps.
 - Settings and error log live in `%APPDATA%\SpotDock\`.
 
-Technical details and pitfalls are in [AGENTS.md](AGENTS.md).
+Technical details and pitfalls are in [AGENTS.md](AGENTS.md). See also [Troubleshooting](docs/TROUBLESHOOTING.md) and [Privacy Policy](docs/PRIVACY.md).
 
 ## Building
 
 Requires the .NET 11 SDK and Visual Studio C++ Build Tools on Windows:
 
 ```
-dotnet publish SpotDock.csproj -c Release -o publish
+build.cmd
 ```
 
-Produces a standalone NativeAOT `SpotDock.exe` with no .NET runtime dependency.
+Or invoke `dotnet publish` directly:
+
+```
+dotnet publish src/SpotDock/SpotDock.csproj -c Release -o artifacts/publish
+```
+
+Produces a standalone NativeAOT `SpotDock.exe` with no .NET runtime dependency (`build.cmd local` builds a framework-dependent binary into `artifacts/local` without C++ Build Tools).
 
 ## How it works
 
@@ -65,28 +71,43 @@ Produces a standalone NativeAOT `SpotDock.exe` with no .NET runtime dependency.
   next track, click/drag the progress bar to seek, scroll wheel to adjust system
   volume, and `+` / green check to save to favorites.
 - **Settings menu:** Right-click the widget for Brightness presets (20%–100%),
-  Show cover art, Stretch text, Progress bar, Start with Windows, Check for updates, and Quit.
+  Show cover art, Progress bar, Start with Windows, Check for updates, and Quit.
 - Settings and error log live in `%APPDATA%\SpotDock\`.
 
 ## Structure
 
+```
+SpotDock.sln
+build.cmd
+src/
+  SpotDock/          NativeAOT Win32/Direct2D widget application
+  spotdock-bridge/   MV3 browser extension for https://open.spotify.com/*
+tests/
+  SpotDock.Tests/    xUnit test suite
+build/
+  setup.iss          Inno Setup 6 installer script
+docs/                Demo image, troubleshooting guide, and privacy policy
+artifacts/           Build, test, and installer outputs (gitignored)
+```
+
 | File | Role |
 |---|---|
-| `WidgetWindow.cs` | Core Win32 widget window lifecycle, track refresh, marquee, and WndProc |
-| `WidgetWindow.Layout.cs` | Taskbar positioning, anchoring, fullscreen detection, and responsive sizing |
-| `WidgetWindow.Animations.cs` | Progress bar, scrubbing pill, hover/opacity animations, and render dispatch |
-| `WidgetWindow.Input.cs` | Hit testing, mouse clicks, drag-to-position, and wheel volume |
-| `WidgetWindow.Menu.cs` | Native Win32 context menu, autostart, and update prompts |
-| `D2DRenderer.cs` | Direct2D/DirectWrite/WIC rendering and layered window presentation |
-| `ScrubPillWindow.cs` | Floating Direct2D scrub timestamp pill |
-| `UiThread.cs` | Win32 message loop and `SynchronizationContext` |
-| `MediaHub.cs` | Shared source combining Spotify Desktop (SMTC) and Spotify Web (`BrowserBridge`) |
-| `MediaArbitration.cs` | Pure source-selection and Spotify app-ID classification helpers |
-| `MediaService.cs` | Windows SMTC reader filtered to Spotify Desktop sessions |
-| `BrowserBridge.cs` | Loopback WebSocket server (`127.0.0.1:45219`) for `open.spotify.com` |
-| `spotdock-bridge/` | MV3 extension (`SpotDock Bridge`) scoped to `https://open.spotify.com/*` |
-| `SpotifyUiaService.cs` | Spotify Desktop accessibility (native COM `IUIAutomation`) |
-| `SourceActivator.cs` | Focuses Spotify Desktop window or Spotify Web browser window |
-| `Interop.cs` | Win32 (taskbar position, topmost, fullscreen detection, input) |
-| `WidgetSettings.cs` | Position, opacity, and UI options stored as JSON |
-| `SpotDock.Tests/` | xUnit tests for arbitration, WebSocket bridge, settings, and release parsing |
+| `src/SpotDock/WidgetWindow.cs` | Core Win32 widget window lifecycle, track refresh, marquee, and WndProc |
+| `src/SpotDock/WidgetWindow.Layout.cs` | Taskbar positioning, anchoring, fullscreen detection, and responsive sizing |
+| `src/SpotDock/WidgetWindow.Animations.cs` | Progress bar, scrubbing pill, hover/opacity animations, and render dispatch |
+| `src/SpotDock/WidgetWindow.Input.cs` | Hit testing, mouse clicks, drag-to-position, and wheel volume |
+| `src/SpotDock/WidgetWindow.Menu.cs` | Native Win32 context menu, autostart, and update prompts |
+| `src/SpotDock/UiStrings.cs` | English UI strings for menus, idle state, and update prompts |
+| `src/SpotDock/D2DRenderer.cs` | Direct2D/DirectWrite/WIC rendering and layered window presentation |
+| `src/SpotDock/ScrubPillWindow.cs` | Floating Direct2D scrub timestamp pill |
+| `src/SpotDock/UiThread.cs` | Win32 message loop and `SynchronizationContext` |
+| `src/SpotDock/MediaHub.cs` | Shared source combining Spotify Desktop (SMTC) and Spotify Web (`BrowserBridge`) |
+| `src/SpotDock/MediaArbitration.cs` | Pure source-selection and Spotify app-ID classification helpers |
+| `src/SpotDock/MediaService.cs` | Windows SMTC reader filtered to Spotify Desktop sessions |
+| `src/SpotDock/BrowserBridge.cs` | Loopback WebSocket server (`127.0.0.1:45219`) for `open.spotify.com` |
+| `src/spotdock-bridge/` | MV3 extension (`SpotDock Bridge`) scoped to `https://open.spotify.com/*` |
+| `src/SpotDock/SpotifyUiaService.cs` | Spotify Desktop accessibility (native COM `IUIAutomation`) |
+| `src/SpotDock/SourceActivator.cs` | Focuses Spotify Desktop window or Spotify Web browser window |
+| `src/SpotDock/Interop.cs` | Win32 (taskbar position, topmost, fullscreen detection, input) |
+| `src/SpotDock/WidgetSettings.cs` | Position, opacity, and UI options stored as JSON |
+| `tests/SpotDock.Tests/` | xUnit tests for arbitration, WebSocket bridge, settings, and release parsing |

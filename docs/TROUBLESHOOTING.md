@@ -28,7 +28,7 @@ SpotDock shows up whenever **Spotify Desktop** (Windows SMTC) or **Spotify Web /
 Unsigned single-file .NET executables and installers can trigger heuristic
 warnings in some antivirus engines or Smart App Control. The full source code is
 public in this repository if you prefer to inspect and build it yourself with
-`dotnet publish SpotDock.csproj -c Release -o publish`.
+`dotnet publish src/SpotDock/SpotDock.csproj -c Release -o artifacts/publish`.
 
 ## The widget overlaps something / sits in the wrong place
 

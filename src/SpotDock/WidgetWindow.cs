@@ -35,7 +35,6 @@ internal sealed partial class WidgetWindow
     private const uint IDM_AUTOSTART = 1004;
     private const uint IDM_UPDATE = 1006;
     private const uint IDM_EXIT = 1007;
-    private const uint IDM_STRETCH_TEXT = 1008;
     private const uint IDM_BRIGHTNESS_BASE = 2000;
     private static readonly int[] BrightnessPresets = { 20, 30, 40, 50, 60, 75, 90, 100 };
 
@@ -141,8 +140,8 @@ internal sealed partial class WidgetWindow
     private bool _updateQueued;
 
     // Track state
-    private string _titleShown = L.IdleTitle;
-    private string _artistShown = L.NothingPlaying;
+    private string _titleShown = UiStrings.IdleTitle;
+    private string _artistShown = UiStrings.NothingPlaying;
     private string _lastTrackKey = "";
     private bool _artDirty = true;
     private bool _refreshing;
@@ -505,8 +504,8 @@ internal sealed partial class WidgetWindow
             if (!_spotifyPresent)
             {
                 _lastTrackKey = "";
-                _titleShown = L.IdleTitle;
-                _artistShown = L.NothingPlaying;
+                _titleShown = UiStrings.IdleTitle;
+                _artistShown = UiStrings.NothingPlaying;
                 _liked = null;
                 SetCanLike(false);
                 SetAlbumArt(IntPtr.Zero);
