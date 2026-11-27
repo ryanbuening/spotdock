@@ -3,9 +3,6 @@ using Windows.Storage.Streams;
 
 namespace SpotDock;
 
-public sealed record TrackInfo(string Title, string Artist, bool IsPlaying,
-    TimeSpan Position, TimeSpan Duration, DateTime PositionAtUtc);
-
 /// <summary>
 /// Reads the current Spotify desktop track through the Windows media API (SMTC).
 /// Only Spotify desktop sessions are watched — other players and browsers are

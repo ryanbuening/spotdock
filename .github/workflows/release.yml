@@ -1,11 +1,13 @@
 name: Build installer
 
-# A tag like v1.3.0 builds the installer and attaches it to the release.
-# A push to main builds the same thing but only puts the file into the
-# artifacts - so a broken build shows up immediately, not at release time.
+# A tag like v2.0.0 builds the installer and bare exe and attaches both to the
+# GitHub release. Pushes to main and pull requests build and run unit tests so
+# breakages show up immediately.
 on:
   push:
     tags: ["v*"]
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -23,8 +25,31 @@ jobs:
         with:
           dotnet-version: "11.0.x"
 
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          [xml]$csproj = Get-Content src/SpotDock/SpotDock.csproj
+          $csprojVer = ($csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1).Trim()
+          if ("${{ github.ref }}".StartsWith("refs/tags/v")) {
+            $version = "${{ github.ref }}".Substring("refs/tags/v".Length)
+          } else {
+            $version = $csprojVer
+          }
+          $manifest = Get-Content src/spotdock-bridge/manifest.json -Raw | ConvertFrom-Json
+          if ($manifest.version -ne $version) {
+            Write-Host "::warning::src/spotdock-bridge/manifest.json version ($($manifest.version)) differs from build version ($version); syncing for packaging."
+            $manifest.version = $version
+            $manifest | ConvertTo-Json -Depth 10 | Set-Content src/spotdock-bridge/manifest.json -Encoding utf8
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Build version: $version"
+
+      - name: Run unit tests
+        run: dotnet test tests/SpotDock.Tests/SpotDock.Tests.csproj -c Release
+
       - name: Build widget
-        run: dotnet publish SpotDock.csproj -c Release -o publish
+        run: dotnet publish src/SpotDock/SpotDock.csproj -c Release -p:Version=${{ steps.ver.outputs.version }} -o artifacts/publish
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
@@ -32,23 +57,25 @@ jobs:
       - name: Build installer
         # The parentheses are required: PowerShell reads $env:ProgramFiles(x86)
         # as the variable ProgramFiles followed by the text "(x86)"
-        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" setup.iss'
+        run: '& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.ver.outputs.version }} build/setup.iss'
 
       - uses: actions/upload-artifact@v7
         with:
           name: installer
-          path: installer/*.exe
+          path: artifacts/installer/*.exe
 
       # Separately - the bare exe: handy for updating an already installed
-      # widget without running the installer
+      # widget without running the installer (also used by UpdateService)
       - uses: actions/upload-artifact@v7
         with:
           name: widget-exe
-          path: publish/SpotDock.exe
+          path: artifacts/publish/SpotDock.exe
 
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
-          files: installer/*.exe
+          files: |
+            artifacts/installer/*.exe
+            artifacts/publish/SpotDock.exe
           generate_release_notes: true

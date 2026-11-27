@@ -28,6 +28,7 @@ async function refreshAudible() {
 }
 let ws = null;
 let retry = 1000;
+let retryTimer = null;
 let lastSentKey = '';
 let pullTimer = null;
 
@@ -125,6 +126,7 @@ function startPull() {
 }
 
 function connect() {
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   try {
     ws = new WebSocket(`ws://127.0.0.1:${PORT}/`);
@@ -169,9 +171,10 @@ function connect() {
 }
 
 function schedule() {
+  if (retryTimer) return;
   // The widget may not be running - reconnect rarely and without panic
-  retry = Math.min(retry * 2, 3000);
-  setTimeout(connect, retry);
+  retry = Math.min(retry * 2, 30000);
+  retryTimer = setTimeout(() => { retryTimer = null; connect(); }, retry);
 }
 
 chrome.runtime.onMessage.addListener((msg, sender) => {

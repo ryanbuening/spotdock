@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\src\SpotDock\AppPaths.cs" Link="Source\AppPaths.cs" />
+    <Compile Include="..\..\src\SpotDock\Diag.cs" Link="Source\Diag.cs" />
+    <Compile Include="..\..\src\SpotDock\BrowserBridge.cs" Link="Source\BrowserBridge.cs" />
+    <Compile Include="..\..\src\SpotDock\MediaArbitration.cs" Link="Source\MediaArbitration.cs" />
+    <Compile Include="..\..\src\SpotDock\WidgetSettings.cs" Link="Source\WidgetSettings.cs" />
+    <Compile Include="..\..\src\SpotDock\UpdateReleaseParser.cs" Link="Source\UpdateReleaseParser.cs" />
+  </ItemGroup>
+
+</Project>

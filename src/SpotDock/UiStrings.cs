@@ -3,7 +3,7 @@ namespace SpotDock;
 /// <summary>
 /// Interface strings. The app ships in English only.
 /// </summary>
-internal static class L
+internal static class UiStrings
 {
     public const string AppTitle = "SpotDock";
     public const string IdleTitle = "SpotDock";

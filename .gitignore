@@ -44,6 +44,7 @@ obj/x86/
 bld/
 [Oo]bj/
 [Oo]ut/
+out-local/
 [Ll]og/
 [Ll]ogs/
 
