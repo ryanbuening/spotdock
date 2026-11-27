@@ -7,19 +7,29 @@ namespace SpotDock;
 /// </summary>
 internal static class UpdateReleaseParser
 {
+    public static Version NormalizeVersion(Version v)
+    {
+        int build = v.Build >= 0 ? v.Build : 0;
+        return v.Revision > 0
+            ? new Version(v.Major, v.Minor, build, v.Revision)
+            : new Version(v.Major, v.Minor, build);
+    }
+
     public static (Version Version, string Url)? Parse(string json, Version currentVersion)
     {
         using var doc = JsonDocument.Parse(json);
 
         string tag = doc.RootElement.TryGetProperty("tag_name", out var tagProp) ? tagProp.GetString() ?? "" : "";
-        if (!Version.TryParse(tag.TrimStart('v', 'V'), out var latest))
+        if (!Version.TryParse(tag.TrimStart('v', 'V'), out var rawLatest))
         {
             // A tag off the pattern (e.g. "v1.3.0-fix") would cut EVERYONE off
             // from updates silently - leave a trace for diagnosis
             Diag.Once("update-tag", "Could not parse the latest release tag as a version: " + tag);
             return null;
         }
-        if (latest <= currentVersion)
+        var latest = NormalizeVersion(rawLatest);
+        var current = NormalizeVersion(currentVersion);
+        if (latest <= current)
             return null;
 
         if (!doc.RootElement.TryGetProperty("assets", out var assetsProp) ||

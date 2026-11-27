@@ -285,4 +285,7 @@ Installer pitfalls:
 - **`{app}` is not expanded yet in `InitializeWizard`** — touching it crashes the
   installer silently. Set page texts in `CurPageChanged`.
 - **No `taskkill` in `[UninstallRun]`**: removing one copy killed the user's
-  running widget. Closing is handled by Restart Manager (`CloseApplications=yes`).
+  running widget. `CloseApplications=force` handles Setup/upgrades via Restart
+  Manager, while Uninstall closes only the process whose full image path matches
+  `{app}\SpotDock.exe` in `CurUninstallStepChanged` (`WM_CLOSE` with
+  `TerminateProcess` fallback).

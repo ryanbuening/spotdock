@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace SpotDock;
 
 internal static class Program
@@ -19,7 +17,7 @@ internal static class Program
             return;
         }
 
-        Diag.Log($"Started, version {Assembly.GetExecutingAssembly().GetName().Version}.");
+        Diag.Log($"Started, version {UpdateService.CurrentVersion}.");
 
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
         {

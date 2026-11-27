@@ -28,7 +28,8 @@ internal static class UpdateService
     public static bool IsConfigured => AutoUpdateEnabled && !GitHubRepo.Contains("CHANGEME");
 
     public static Version CurrentVersion =>
-        Assembly.GetExecutingAssembly().GetName().Version ?? new Version(1, 0, 0);
+        UpdateReleaseParser.NormalizeVersion(
+            Assembly.GetExecutingAssembly().GetName().Version ?? new Version(1, 0, 0));
 
     public static async Task<(Version Version, string Url)?> CheckAsync()
     {
@@ -37,7 +38,11 @@ internal static class UpdateService
         using var http = NewClient();
         using var response = await http.GetAsync($"https://api.github.com/repos/{GitHubRepo}/releases/latest");
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            return null; // repository has no releases yet - not an error
+        {
+            string msg = $"No public releases found for {GitHubRepo} (HTTP 404). Make sure the repository is public and has a published release.";
+            Diag.Once("update-not-found", msg);
+            throw new InvalidOperationException(msg);
+        }
         response.EnsureSuccessStatusCode();
         string json = await response.Content.ReadAsStringAsync();
         return UpdateReleaseParser.Parse(json, CurrentVersion);

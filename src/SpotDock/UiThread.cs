@@ -132,10 +132,24 @@ internal static unsafe class UiThread
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvStdcall) })]
     private static LRESULT MsgWndProc(HWND hwnd, uint msg, WPARAM wParam, LPARAM lParam)
     {
-        if (msg == WM_APP_DISPATCH)
+        switch (msg)
         {
-            DrainQueue();
-            return default;
+            case WM_APP_DISPATCH:
+                DrainQueue();
+                return default;
+            case PInvoke.WM_CLOSE:
+                Program.IntentionalExit = true;
+                Shutdown();
+                return default;
+            case PInvoke.WM_QUERYENDSESSION:
+                return (LRESULT)1;
+            case PInvoke.WM_ENDSESSION:
+                if (wParam.Value != 0)
+                {
+                    Program.IntentionalExit = true;
+                    Shutdown();
+                }
+                return default;
         }
         return PInvoke.DefWindowProc(hwnd, msg, wParam, lParam);
     }

@@ -29,7 +29,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-CloseApplications=yes
+CloseApplications=force
 RestartApplications=no
 
 [Languages]
@@ -63,14 +63,96 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}
 Filename: "{win}\explorer.exe"; Parameters: """{app}\spotdock-bridge"""; \
     Description: "{cm:OpenExtDir}"; Flags: nowait postinstall skipifsilent
 
+[UninstallDelete]
+Type: filesandordirs; Name: "{userappdata}\{#MyAppShortName}"
+
 ; taskkill by process name would be dangerous here: it kills ANY copy of the
 ; widget, including one installed in another folder or built by hand.
-; Closing is handled by CloseApplications - through Restart Manager it touches
-; only the processes holding files from the install folder.
+; CloseApplications handles Setup/upgrades via Restart Manager, while Uninstall
+; closes only the process whose full image path matches {app}\SpotDock.exe.
 
 [Code]
+const
+  WM_CLOSE = $0010;
+  HWND_MESSAGE = -3;
+  PROCESS_TERMINATE = $0001;
+  SYNCHRONIZE = $00100000;
+  PROCESS_QUERY_LIMITED_INFORMATION = $1000;
+  WAIT_OBJECT_0 = $00000000;
+
 var
   ExtPage: TOutputMsgWizardPage;
+
+function FindWindowExW(hwndParent, hwndChildAfter: LongInt; lpszClass: string; lpszWindow: LongInt): HWND;
+  external 'FindWindowExW@user32.dll stdcall';
+function GetWindowThreadProcessId(hWnd: HWND; var lpdwProcessId: DWORD): DWORD;
+  external 'GetWindowThreadProcessId@user32.dll stdcall';
+function OpenProcess(dwDesiredAccess: DWORD; bInheritHandle: BOOL; dwProcessId: DWORD): THandle;
+  external 'OpenProcess@kernel32.dll stdcall';
+function QueryFullProcessImageNameW(hProcess: THandle; dwFlags: DWORD; lpExeName: string; var lpdwSize: DWORD): BOOL;
+  external 'QueryFullProcessImageNameW@kernel32.dll stdcall';
+function WaitForSingleObject(hHandle: THandle; dwMilliseconds: DWORD): DWORD;
+  external 'WaitForSingleObject@kernel32.dll stdcall';
+function TerminateProcess(hProcess: THandle; uExitCode: UINT): BOOL;
+  external 'TerminateProcess@kernel32.dll stdcall';
+function CloseHandle(hObject: THandle): BOOL;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+procedure CloseInstalledApp();
+var
+  Wnd: HWND;
+  Pid: DWORD;
+  Proc: THandle;
+  ExePath: string;
+  PathLen: DWORD;
+  TargetExe: string;
+begin
+  TargetExe := ExpandConstant('{app}\{#MyAppExeName}');
+
+  // Locate the widget window, or fall back to its hidden dispatch window
+  // (e.g. if the widget is waiting for Explorer/taskbar to come back).
+  Wnd := FindWindowByClassName('SpotDock_Main');
+  if Wnd = 0 then
+    Wnd := FindWindowExW(HWND_MESSAGE, 0, 'SpotDock_DispatchMsg', 0);
+  if Wnd = 0 then
+    Exit;
+
+  Pid := 0;
+  GetWindowThreadProcessId(Wnd, Pid);
+  if Pid = 0 then
+    Exit;
+
+  // Only close the process if its full image path matches THIS install folder,
+  // so uninstalling one copy never kills a separate or dev copy of SpotDock.
+  Proc := OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION or SYNCHRONIZE or PROCESS_TERMINATE, False, Pid);
+  if Proc = 0 then
+    Exit;
+  try
+    PathLen := 1024;
+    ExePath := StringOfChar(#0, PathLen);
+    if QueryFullProcessImageNameW(Proc, 0, ExePath, PathLen) then
+    begin
+      SetLength(ExePath, PathLen);
+      if CompareText(ExePath, TargetExe) = 0 then
+      begin
+        PostMessage(Wnd, WM_CLOSE, 0, 0);
+        if WaitForSingleObject(Proc, 3000) <> WAIT_OBJECT_0 then
+        begin
+          TerminateProcess(Proc, 0);
+          WaitForSingleObject(Proc, 2000);
+        end;
+      end;
+    end;
+  finally
+    CloseHandle(Proc);
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+    CloseInstalledApp();
+end;
 
 procedure InitializeWizard();
 begin

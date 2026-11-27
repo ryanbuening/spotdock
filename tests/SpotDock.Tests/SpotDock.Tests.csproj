@@ -21,6 +21,7 @@
     <Compile Include="..\..\src\SpotDock\BrowserBridge.cs" Link="Source\BrowserBridge.cs" />
     <Compile Include="..\..\src\SpotDock\MediaArbitration.cs" Link="Source\MediaArbitration.cs" />
     <Compile Include="..\..\src\SpotDock\WidgetSettings.cs" Link="Source\WidgetSettings.cs" />
+    <Compile Include="..\..\src\SpotDock\UiStrings.cs" Link="Source\UiStrings.cs" />
     <Compile Include="..\..\src\SpotDock\UpdateReleaseParser.cs" Link="Source\UpdateReleaseParser.cs" />
   </ItemGroup>
 

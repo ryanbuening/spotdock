@@ -1043,6 +1043,26 @@ internal sealed partial class WidgetWindow
                     win.UpdatePosition();
                     return default;
 
+                case PInvoke.WM_CLOSE:
+                    Diag.Log("Closing on WM_CLOSE.");
+                    Program.IntentionalExit = true;
+                    PInvoke.DestroyWindow(hwnd);
+                    UiThread.Shutdown();
+                    return default;
+
+                case PInvoke.WM_QUERYENDSESSION:
+                    return (LRESULT)1;
+
+                case PInvoke.WM_ENDSESSION:
+                    if (wParam.Value != 0)
+                    {
+                        Diag.Log("Closing on WM_ENDSESSION.");
+                        Program.IntentionalExit = true;
+                        PInvoke.DestroyWindow(hwnd);
+                        UiThread.Shutdown();
+                    }
+                    return default;
+
                 case PInvoke.WM_DESTROY:
                     win.OnDestroyed();
                     PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWLP_USERDATA, 0);
