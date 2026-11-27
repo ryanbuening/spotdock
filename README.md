@@ -1,6 +1,6 @@
 # SpotDock
 
-A Spotify-only Windows taskbar widget that uses ~30 MB of RAM.
+A lightweight Spotify widget for your Windows taskbar.
 SpotDock displays whatever is playing (or paused) in **Spotify Desktop** (classic installer & Microsoft Store via Windows SMTC) or **Spotify Web / browser PWA** (`open.spotify.com` via the optional `SpotDock Bridge` extension). When no Spotify track is loaded or Spotify is closed, the widget stays hidden.
 
 ![SpotDock demo](docs/demo.png)
